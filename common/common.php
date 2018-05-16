@@ -1,156 +1,220 @@
 <?php
 
+use Deployer\Deployer;
+use Deployer\Host\Host;
+use Deployer\Task\Context;
+
 use function Deployer\{
-    task, upload, get, run, parse
+    task, writeln, get, set, run, inventory, upload, before, after, parse
 };
 
-function _substitutions(array $paths)
-{
-    // may -i '' -e ... @see https://stackoverflow.com/questions/19456518
-    $substitutions = '';
+use function Deployer\Support\{
+    array_merge_alternate
+};
 
-    foreach ($paths as $key => $value) {
-        $substitutions .= sprintf("-e 's/%s/%s/g' ", $key, preg_quote(parse($value), '/'));
+require 'recipe/symfony3.php';
+require 'recipe/cachetool.php';
+require 'recipe/cloudflare.php';
+require '_docker.php';
+require '_install.php';
+require '_system.php';
+require '_override.php';
+require '_deploy.php';
+
+set('git_tty', true);
+set('http_strict_server_name', true);
+
+// Symfony console bin
+set('sf', function () {
+    // can't use `release_path` case of using on none-release task.
+    return sprintf('{{bin/php}} {{deploy_path}}/current/%s/console', trim(get('bin_dir'), '/'));
+});
+
+/**
+ * @param $file
+ *
+ * @throws Exception
+ */
+function servers($file)
+{
+    if (!file_exists($file) || !is_readable($file)) {
+        throw new Exception("File `$file` doesn't exists or doesn't readable.");
     }
 
-    if (!empty($substitutions)) {
-        run("find {{deploy_root}}/.deploy/ -type f -exec sed -i $substitutions {} \;");
+    $content = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'hosts.yml') . "\r\n" . file_get_contents($file);
+    $file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'deployer-server.yml';
+
+    file_put_contents($file, $content);
+
+    inventory($file);
+
+    foreach (Deployer::get()->hosts as $host) {
+        _define_tasks($host);
+        _setup_tasks($host);
     }
 }
 
-task('common:install:init', function () {
-    $phpVersion = get('php_version');
+function _setup_tasks(Host $host)
+{
+    $tasks = (array)$host->get('tasks');
+    $before = $tasks['before'] ?? [];
+    $after = $tasks['after'] ?? [];
+    $task = $tasks['task'] ?? [];
 
-    // create target
-    run('if [ ! -d {{deploy_root}} ]; then mkdir -p {{deploy_root}}; fi');
+    $selfName = $host->getHostname();
 
-    // upload docker
-    if (get('docker')) {
-        upload('{{docker}}/*', "{{deploy_root}}/.docker");
+    foreach ($task as $name => $tasks) {
+        task($selfName . ':' . $name, $tasks);
     }
 
-    // upload config
-    upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
+    foreach ($before as $name => $tasks) {
+        foreach ((array)$tasks as $task) {
+            $name = preg_replace('/^self:', $selfName . ':', $name);
+            $task = preg_replace('/^self:', $selfName . ':', $task);
 
-    _substitutions((array)get('substitutions', []));
-
-    // main file
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/nginx.conf /etc/nginx/nginx.conf");
-
-    // include dirs
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/bots.d /etc/nginx/bots.d");
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/http.d /etc/nginx/http.d");
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/server.d /etc/nginx/server.d");
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/vhost.d /etc/nginx/vhost.d");
-
-    // link files
-    run("ln -nfs {{deploy_root}}/.deploy/nginx/conf.d/blacklist.conf /etc/nginx/conf.d/blacklist.conf");
-    run("chmod 0755 {{deploy_root}}/.deploy/nginx/conf.d/blacklist.conf");
-
-    run("ln -nfs {{deploy_root}}/.deploy/cli/php.ini /etc/php/$phpVersion/cli/conf.d/10-custom.ini");
-
-    // TODO: multi support
-    run("ln -nfs {{deploy_root}}/.deploy/fpm/php.ini /etc/php/$phpVersion/fpm/conf.d/10-custom.ini");
-    run("ln -nfs {{deploy_root}}/.deploy/fpm/pool/www.conf /etc/php/$phpVersion/fpm/pool.d/www.conf");
-
-    run("ln -nfs {{deploy_root}}/.deploy/supervisor/supervisord.conf /etc/supervisor/supervisord.conf");
-
-    // cannot use symlink for mysql due to permission on my.cnf denide by mysql user
-    run("cp -f {{deploy_root}}/.deploy/mysql/my.cnf /etc/mysql/my.cnf");
-
-    run("cp -f {{deploy_root}}/.deploy/ssl/* /etc/ssl");
-})->setPrivate();
-
-task('common:install:init_vhost', function () {
-    $backendName = get('backend_name');
-    $backendPort = get('backend_port');
-    $deployRoot = get('deploy_root');
-    $vhostMapPath = get('vhost_map_path');
-    $targetFile = "$deployRoot/.deploy/nginx/vhost.d/$backendName.conf";
-
-    // upload config
-    upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
-
-    run("cp -R {{deploy_root}}/.deploy/nginx/default_backend.conf.dist $targetFile");
-
-    // upload user vhost map
-    upload($vhostMapPath, "{{deploy_root}}/.deploy/nginx/http.d/vhost_map_user.conf");
-
-    _substitutions([
-        'EDIT_ME_BACKEND_PORT' => $backendPort,
-        'EDIT_ME_BACKEND_NAME' => $backendName,
-        'EDIT_ME_REMOTE_ADDR' => get('cloudflare_proxy_used') ? '$http_cf_connecting_ip' : '$remote_addr',
-    ]);
-
-    // upload user defined supervisors
-    // be careful filename when using in multi-backend mode.
-    foreach ((array)get('supervisors') as $file) {
-        upload($file, "{{deploy_root}}/.deploy/supervisor/conf.d/");
+            before($name, $task);
+        }
     }
 
-    // global path -- when run vhost_update alone
-    _substitutions((array)get('substitutions', []));
+    foreach ($after as $name => $tasks) {
+        foreach ((array)$tasks as $task) {
+            $name = preg_replace('/^self:/', $selfName . ':', $name);
+            $task = preg_replace('/^self:/', $selfName . ':', $task);
+
+            after($name, $task);
+        }
+    }
+}
+
+function _define_tasks(Host $host)
+{
+    foreach ((array)$host->get('defines') as $task => $commands) {
+        $runs = [];
+        foreach ((array)$commands as $command) {
+            if (preg_match('/^(run|sf_run|supervisor_ctl)\((.*)\)$/', $command, $match)) {
+                $fn = $match[1];
+                $arg = trim($match[2], preg_match('/^"/', $match[2]) ? '"' : "'");
+            } else {
+                throw new RuntimeException("Not supported command `$command`.");
+            }
+
+            if ('run' === $fn) {
+                $fn = function ($arg) {
+                    run($arg);
+                };
+            }
+
+            $runs[] = [$fn, $arg];
+        }
+
+        task($host->getHostname() . ':' . $task, function () use ($runs) {
+            foreach ($runs as $run) {
+                call_user_func(...$run);
+            }
+        });
+    }
+}
+
+function _apply_config(&$config)
+{
+    array_walk_recursive($config, function (&$item) {
+        $item = parse($item);
+    });
+}
+
+function sf_run($commands)
+{
+    // need to use `release_path` to use released console. (not use current_path case of not finish release yet.)
+    $console = sprintf('{{bin/php}} {{release_path}}/%s/console', trim(get('bin_dir'), '/'));
+
+    foreach ((array)$commands as $command) {
+        run("$console $command {{console_options}}");
+    }
+}
+
+function supervisor_ctl($command)
+{
+    // unix server use default authen
+    run("supervisorctl -usupervisor -psupervisor_password $command");
+}
+
+task('common:setup', function () {
+    $hostname = Context::get()->getHost()->getHostname();
+    writeln("> Setting up deploy environments on <fg=cyan>$hostname</fg=cyan> port <fg=cyan>{{port}}</fg=cyan>");
+
+    set('deploy_path', get('deploy_root') . DIRECTORY_SEPARATOR . get('backend_name'));
+
+    $environments = (array)get('environments', []);
+
+    foreach (array_keys($environments) as $key) {
+        $configs = $environments[$key];
+
+        // `undefined` prevent exception, `has` not cover.
+        if ($originConfig = get($key, 'undefined')) {
+            if (is_array($originConfig) && is_array($configs) && array_key_exists(0, $configs)) {
+                if ('@override' === $configs[0]) {
+                    array_shift($configs);
+                } else {
+                    $configs = array_merge_alternate($originConfig, $configs);
+                }
+            }
+        }
+
+        if (is_string($configs) && !empty($configs)) {
+            $configs = parse($configs);
+        }
+
+        if (is_array($configs)) {
+            _apply_config($configs);
+        }
+
+        set($key, $configs);
+    }
+
+    if (true === get('cachetool', 'undefined')) {
+        set('cachetool', get('php_fastcgi'));
+    }
+
+})->desc('Setup deploy environments.')->setPrivate();
+
+/**
+ * Replace parameters with config
+ */
+task('common:build_parameters', function () {
+    $localParameters = \Symfony\Component\Yaml\Yaml::parse(file_get_contents(
+        get('local_parameters')
+    ));
+
+    $parameters = array_replace_recursive(
+        $localParameters, ['parameters' => get('parameters')]
+    );
+
+    // Querystring for app.js & style.css
+    $parameters['parameters']['asset_release'] = time();
+
+    _apply_config($parameters);
+
+    $newParameters = \Symfony\Component\Yaml\Yaml::dump($parameters);
+
+    run("mkdir -p {{deploy_path}}/shared/app/config");
+    run('echo "' . $newParameters . '" > {{deploy_path}}/shared/app/config/parameters.yml');
 })->setPrivate();
 
-task('common:install:testing', function () {
-    run("rm -rf {{deploy_path}}/current && mkdir -p {{deploy_path}}/current/web");
-    run("ln -nfs {{deploy_root}}/.deploy/app.php {{deploy_path}}/current/web/app.php");
-})->setPrivate();
+/**
+ * Copy locale file & reinstall assets!
+ */
+task('common:copy_local', function () {
+    foreach ((array)get('copy_local_dirs') as $dir) {
+        upload("$dir/*", "{{release_path}}/$dir");
+    }
 
-task('common:install:clean', function () {
-    run("rm -rf {{deploy_root}}/*");
-    run("rm -rf {{deploy_root}}/.deploy");
-})->setPrivate();
+    foreach ((array)get('copy_local_files') as $file) {
+        upload($file, "{{release_path}}/$file");
+    }
 
-task('common:install:clear', function () {
-    run("rm -rf {{deploy_path}}");
-})->setPrivate();
+    /**sf_run('assets:install {{release_path}}/web --relative');
 
-task('common:system:install', [
-    'common:setup',
-    'common:install:clean',
-    'common:install:init',
-    'common:install:init_vhost',
-    'common:install:testing',
-    'reload:fpm',
-    'reload:nginx',
-    'reload:mysql',
-    'reload:supervisor',
-])->desc('Initial system');
-
-task('common:system:vhost', [
-    'common:setup',
-    'common:install:clear',
-    'common:install:init_vhost',
-    'common:install:testing',
-    'reload:fpm',
-    'reload:nginx',
-    'reload:supervisor',
-])->desc('Initial Vhost');
-
-task('common:system:vhost_update', [
-    'common:setup',
-    'common:install:init_vhost',
-    'reload:fpm',
-    'reload:nginx',
-    'update:supervisor',
-])->desc('Update Vhost');
-
-task('common:system:reset_config', [
-    'common:setup',
-    'common:install:init',
-    'reload:fpm',
-    'reload:nginx',
-    'reload:mysql',
-    'reload:supervisor',
-])->desc('Reset system');
-
-task('common:system:reset_nginx', [
-    'common:setup',
-    'common:install:init',
-    'reload:nginx',
-])->desc('Reset Only Nginx system');
-
-task('common:system:clear', [
-    'common:install:clear',
-])->desc('Clear system');
+    if (get('sylius_theme_used')) {
+        sf_run('sylius:theme:assets:install {{release_path}}/web --relative');
+    }**/
+});
