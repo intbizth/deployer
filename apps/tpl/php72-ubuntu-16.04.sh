@@ -66,6 +66,7 @@ cd ~
 apt-get -y --allow-unauthenticated install \
     php7.2 \
     php7.2-bz2 \
+    php7.2-bcmath \
     php7.2-cli \
     php7.2-common \
     php7.2-curl \
