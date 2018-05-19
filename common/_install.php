@@ -18,6 +18,18 @@ function _substitutions(array $paths)
     }
 }
 
+task('docker:init', function () {
+    // upload docker
+    if (get('docker')) {
+        upload('{{docker}}/*', "{{deploy_root}}/.docker");
+        run('rm -rf {{deploy_root}}/.docker/var/*');
+        run('rm -rf {{deploy_root}}/.docker/logs/*');
+        run('rm -rf {{deploy_root}}/.docker/node_modules');
+        run('mkdir -p {{deploy_root}}/.docker/var/rabbitmq/mnesia');
+        run('chmod -R 0777 {{deploy_root}}/.docker/var/rabbitmq');
+    }
+});
+
 task('common:install:init', function () {
     $phpVersion = get('php_version');
 
