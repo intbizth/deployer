@@ -170,6 +170,7 @@ task('common:system:reset_config', [
 task('common:system:reset_nginx', [
     'common:setup',
     'common:install:init',
+    'common:install:init_vhost',
     'reload:nginx',
 ])->desc('Reset Only Nginx system');
 
