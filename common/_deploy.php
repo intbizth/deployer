@@ -72,6 +72,7 @@ task('common:deploy_quick', [
     'cleanup',
 ])->desc('Deploy');
 
+after('cleanup', 'reload:supervisor');
 after('cleanup', 'reload:fpm');
 after('cleanup', 'reload:nginx');
 after('cleanup', 'success');
