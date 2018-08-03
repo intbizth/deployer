@@ -15,11 +15,12 @@ function _substitutions(array $paths)
 
     if (!empty($substitutions)) {
         run("find {{deploy_root}}/.deploy/ -type f -exec sed -i $substitutions {} \;");
+        run("find {{deploy_root}}/.docker/ -type f -exec sed -i $substitutions {} \;");
     }
 }
 
-task('docker:init', function () {
-    // upload docker
+function _upload_docker()
+{
     if (get('docker')) {
         upload('{{docker}}/*', "{{deploy_root}}/.docker");
         run('rm -rf {{deploy_root}}/.docker/var/*');
@@ -28,6 +29,10 @@ task('docker:init', function () {
         run('mkdir -p {{deploy_root}}/.docker/var/rabbitmq/mnesia');
         run('chmod -R 0777 {{deploy_root}}/.docker/var/rabbitmq');
     }
+}
+
+task('docker:init', function () {
+    _upload_docker();
 });
 
 task('common:install:init', function () {
@@ -37,14 +42,7 @@ task('common:install:init', function () {
     run('if [ ! -d {{deploy_root}} ]; then mkdir -p {{deploy_root}}; fi');
 
     // upload docker
-    if (get('docker')) {
-        upload('{{docker}}/*', "{{deploy_root}}/.docker");
-        run('rm -rf {{deploy_root}}/.docker/var/*');
-        run('rm -rf {{deploy_root}}/.docker/logs/*');
-        run('rm -rf {{deploy_root}}/.docker/node_modules');
-        run('mkdir -p {{deploy_root}}/.docker/var/rabbitmq/mnesia');
-        run('chmod -R 0777 {{deploy_root}}/.docker/var/rabbitmq');
-    }
+    _upload_docker();
 
     // upload config
     upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
