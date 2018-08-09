@@ -183,9 +183,8 @@ task('common:setup', function () {
  * Replace parameters with config
  */
 task('common:build_parameters', function () {
-    $localParameters = \Symfony\Component\Yaml\Yaml::parse(file_get_contents(
-        get('local_parameters')
-    ));
+    $content = strval(@file_get_contents(get('local_parameters')));
+    $localParameters = \Symfony\Component\Yaml\Yaml::parse($content) ?? [];
 
     $parameters = array_replace_recursive(
         $localParameters, ['parameters' => get('parameters')]
@@ -198,7 +197,6 @@ task('common:build_parameters', function () {
 
     $newParameters = \Symfony\Component\Yaml\Yaml::dump($parameters);
 
-    // sf4
     run('echo "' . $newParameters . '" > {{release_path}}/config/parameters.yml');
 })->setPrivate();
 
@@ -217,6 +215,6 @@ task('common:copy_local', function () {
     /**sf_run('assets:install {{release_path}}/web --relative');
 
     if (get('sylius_theme_used')) {
-        sf_run('sylius:theme:assets:install {{release_path}}/web --relative');
+    sf_run('sylius:theme:assets:install {{release_path}}/web --relative');
     }**/
 });
