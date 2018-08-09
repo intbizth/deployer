@@ -32,6 +32,11 @@ set('sf', function () {
     return sprintf('{{bin/php}} {{deploy_path}}/current/%s/console', trim(get('bin_dir'), '/'));
 });
 
+set('console_options', function () {
+    $options = '--no-interaction --env={{symfony_env}}';
+    return get('symfony_env') !== 'prod' ? $options : sprintf('%s --no-debug', $options);
+});
+
 /**
  * @param $file
  *
