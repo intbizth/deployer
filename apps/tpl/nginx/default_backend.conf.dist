@@ -2,7 +2,7 @@ server {
     listen EDIT_ME_BACKEND_PORT;
     listen [::]:EDIT_ME_BACKEND_PORT;
     server_name EDIT_ME_BACKEND_NAME;
-    root EDIT_ME_DEPLOY_PATH/current/web;
+    root EDIT_ME_DEPLOY_PATH/current/public;
 
     error_log /var/log/nginx/EDIT_ME_BACKEND_NAME_error.log;
     access_log /var/log/nginx/EDIT_ME_BACKEND_NAME_access.log main;
