@@ -198,6 +198,9 @@ task('common:build_parameters', function () {
 
     run("mkdir -p {{deploy_path}}/shared/app/config");
     run('echo "' . $newParameters . '" > {{deploy_path}}/shared/app/config/parameters.yml');
+
+    // sf4
+    run('echo "' . $newParameters . '" > {{release_path}}/config/parameters.yml');
 })->setPrivate();
 
 /**
