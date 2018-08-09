@@ -23,6 +23,8 @@ require '_deploy.php';
 
 set('git_tty', true);
 set('http_strict_server_name', true);
+set('bin_dir', 'bin');
+set('var_dir', 'var');
 
 // Symfony console bin
 set('sf', function () {
