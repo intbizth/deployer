@@ -113,8 +113,8 @@ task('common:install:init_vhost', function () {
 })->setPrivate();
 
 task('common:install:testing', function () {
-    run("rm -rf {{deploy_path}}/current && mkdir -p {{deploy_path}}/current/web");
-    run("ln -nfs {{deploy_root}}/.deploy/app.php {{deploy_path}}/current/web/app.php");
+    run("rm -rf {{deploy_path}}/current && mkdir -p {{deploy_path}}/current/public");
+    run("ln -nfs {{deploy_root}}/.deploy/app.php {{deploy_path}}/current/public/index.php");
 })->setPrivate();
 
 task('common:install:clean', function () {
