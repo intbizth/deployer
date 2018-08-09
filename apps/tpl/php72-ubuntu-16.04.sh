@@ -84,6 +84,8 @@ apt-get -y --allow-unauthenticated install \
     php7.2-xmlrpc \
     php7.2-xml \
     php7.2-zip \
+    php7.2-amqp \
+    php7.2-gmp \
     php-imagick \
     php-apcu \
     php-pear \
