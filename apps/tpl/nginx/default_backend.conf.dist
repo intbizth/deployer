@@ -8,10 +8,10 @@ server {
     access_log /var/log/nginx/EDIT_ME_BACKEND_NAME_access.log main;
 
     location / {
-        try_files $uri /app.php$is_args$args;
+        try_files $uri /index.php$is_args$args;
     }
 
-    location ~ ^/app\.php(/|$) {
+    location ~ ^/index\.php(/|$) {
         fastcgi_pass unix:EDIT_ME_PHP_FASTCGI;
         fastcgi_split_path_info ^(.+\.php)(/.*)$;
         include fastcgi_params;

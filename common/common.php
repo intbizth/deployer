@@ -12,7 +12,7 @@ use function Deployer\Support\{
     array_merge_alternate
 };
 
-require 'recipe/symfony3.php';
+require 'recipe/symfony4.php';
 require 'recipe/cachetool.php';
 require 'recipe/cloudflare.php';
 require '_docker.php';
@@ -196,8 +196,8 @@ task('common:build_parameters', function () {
 
     $newParameters = \Symfony\Component\Yaml\Yaml::dump($parameters);
 
-    run("mkdir -p {{deploy_path}}/shared/app/config");
-    run('echo "' . $newParameters . '" > {{deploy_path}}/shared/app/config/parameters.yml');
+    // sf4
+    run('echo "' . $newParameters . '" > {{release_path}}/config/parameters.yml');
 })->setPrivate();
 
 /**
