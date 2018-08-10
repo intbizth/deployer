@@ -79,6 +79,7 @@ task('common:install:init', function () {
 task('common:install:init_vhost', function () {
     $backendName = get('backend_name');
     $backendPort = get('backend_port');
+    $backendConf = get('backend_conf');
     $deployRoot = get('deploy_root');
     $vhostMapPath = get('vhost_map_path');
     $targetFile = "$deployRoot/.deploy/nginx/vhost.d/$backendName.conf";
@@ -86,10 +87,14 @@ task('common:install:init_vhost', function () {
     // upload config
     upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
 
-    run("cp -R {{deploy_root}}/.deploy/nginx/default_backend.conf.dist $targetFile");
-
     // upload user vhost map
     upload($vhostMapPath, "{{deploy_root}}/.deploy/nginx/http.d/vhost_map_user.conf");
+
+    if ($backendConf) {
+        upload($backendConf, $targetFile);
+    } else {
+        run("cp -R {{deploy_root}}/.deploy/nginx/default_backend.conf.dist $targetFile");
+    }
 
     foreach (get('vhost_files', []) as $vhost) {
         $vhostFile = explode('/', $vhost);
