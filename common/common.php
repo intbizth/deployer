@@ -22,6 +22,7 @@ require '_override.php';
 require '_deploy.php';
 
 set('git_tty', true);
+// TODO: parse env via `hosts.yml`
 set('env', [
     'APP_ENV' => 'prod',
     'APP_DEBUG' => '0',
