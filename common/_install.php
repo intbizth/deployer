@@ -15,14 +15,18 @@ function _substitutions(array $paths)
 
     if (!empty($substitutions)) {
         run("find {{deploy_root}}/.deploy/ -type f -exec sed -i $substitutions {} \;");
-        run("find {{deploy_root}}/.docker/ -type f -exec sed -i $substitutions {} \;");
+
+        if (get('docker')) {
+            run("find {{deploy_root}}/.docker/ -type f -exec sed -i $substitutions {} \;");
+        }
+
     }
 }
 
 function _upload_docker()
 {
     if (get('docker')) {
-        upload('{{docker}}/*', "{{deploy_root}}/.docker");
+        upload('{{docker}}/', "{{deploy_root}}/.docker");
         run('rm -rf {{deploy_root}}/.docker/var/*');
         run('rm -rf {{deploy_root}}/.docker/logs/*');
         run('rm -rf {{deploy_root}}/.docker/node_modules');
@@ -45,7 +49,7 @@ task('common:install:init', function () {
     _upload_docker();
 
     // upload config
-    upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
+    upload('{{app_path}}/', "{{deploy_root}}/.deploy");
 
     _substitutions((array)get('substitutions', []));
 
@@ -85,7 +89,7 @@ task('common:install:init_vhost', function () {
     $targetFile = "$deployRoot/.deploy/nginx/vhost.d/$backendName.conf";
 
     // upload config
-    upload('{{app_path}}/*', "{{deploy_root}}/.deploy");
+    upload('{{app_path}}/', "{{deploy_root}}/.deploy");
 
     // upload user vhost map
     upload($vhostMapPath, "{{deploy_root}}/.deploy/nginx/http.d/vhost_map_user.conf");
