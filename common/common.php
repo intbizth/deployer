@@ -23,8 +23,8 @@ require '_deploy.php';
 
 set('git_tty', true);
 set('env', [
-    'APP_ENV=prod',
-    'APP_DEBUG=0',
+    'APP_ENV' => 'prod',
+    'APP_DEBUG' => '0',
 ]);
 
 // Symfony console bin
