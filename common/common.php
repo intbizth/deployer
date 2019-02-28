@@ -22,19 +22,11 @@ require '_override.php';
 require '_deploy.php';
 
 set('git_tty', true);
-set('http_strict_server_name', true);
-set('bin_dir', 'bin');
-set('var_dir', 'var');
 
 // Symfony console bin
 set('sf', function () {
     // can't use `release_path` case of using on none-release task.
-    return sprintf('{{bin/php}} {{deploy_path}}/current/%s/console', trim(get('bin_dir'), '/'));
-});
-
-set('console_options', function () {
-    $options = '--no-interaction --env={{symfony_env}}';
-    return get('symfony_env') !== 'prod' ? $options : sprintf('%s --no-debug', $options);
+    return '{{bin/php}} {{deploy_path}}/current/bin/console';
 });
 
 /**
@@ -132,10 +124,10 @@ function _apply_config(&$config)
 function sf_run($commands)
 {
     // need to use `release_path` to use released console. (not use current_path case of not finish release yet.)
-    $console = sprintf('{{bin/php}} {{release_path}}/%s/console', trim(get('bin_dir'), '/'));
+    $console = '{{bin/php}} {{release_path}}/bin/console';
 
     foreach ((array)$commands as $command) {
-        run("$console $command {{console_options}}");
+        run("$console $command");
     }
 }
 
@@ -183,27 +175,6 @@ task('common:setup', function () {
     }
 
 })->desc('Setup deploy environments.')->setPrivate();
-
-/**
- * Replace parameters with config
- */
-task('common:build_parameters', function () {
-    $content = strval(@file_get_contents(get('local_parameters')));
-    $localParameters = \Symfony\Component\Yaml\Yaml::parse($content) ?? [];
-
-    $parameters = array_replace_recursive(
-        $localParameters, ['parameters' => get('parameters')]
-    );
-
-    // Querystring for app.js & style.css
-    $parameters['parameters']['asset_release'] = time();
-
-    _apply_config($parameters);
-
-    $newParameters = \Symfony\Component\Yaml\Yaml::dump($parameters);
-
-    run('echo "' . $newParameters . '" > {{release_path}}/config/parameters.yml');
-})->setPrivate();
 
 /**
  * Copy locale file & reinstall assets!
