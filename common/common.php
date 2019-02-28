@@ -185,7 +185,7 @@ task('common:setup', function () {
  */
 task('common:copy_local', function () {
     foreach ((array)get('copy_local_dirs') as $dir) {
-        upload("$dir/*", "{{release_path}}/$dir");
+        upload("$dir/", "{{release_path}}/$dir");
     }
 
     foreach ((array)get('copy_local_files') as $file) {
