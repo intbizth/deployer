@@ -3,7 +3,7 @@
 # https://zach-adams.com/2015/01/apt-get-cant-connect-to-security-ubuntu-fix/
 sudo bash -c 'echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf'
 
-timedatectl set-timezone EDIT_ME_SERVER_TIMEZONE
+timedatectl set-timezone Asia/Bangkok
 
 bash -c 'echo "LC_CTYPE=en_US.UTF-8" >> /etc/default/locale'
 bash -c 'echo LC_ALL=en_US.UTF-8 >> /etc/default/locale'
